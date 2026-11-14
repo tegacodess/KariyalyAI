@@ -22,6 +22,7 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [confirmationSentTo, setConfirmationSentTo] = useState('')
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -40,7 +41,11 @@ export default function Signup() {
     setLoading(true)
 
     try {
-      await signUp(email, password)
+      const needsConfirmation = await signUp(email, password)
+      if (needsConfirmation) {
+        setConfirmationSentTo(email)
+        return
+      }
       navigate('/onboarding', { replace: true })
     } catch (err) {
       setError(
@@ -135,6 +140,20 @@ export default function Signup() {
               Get started in seconds. No credit card required.
             </p>
           </div>
+
+          {confirmationSentTo && (
+            <div
+              role="status"
+              className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"
+            >
+              <p className="font-semibold">Check your email</p>
+              <p className="mt-1">
+                We sent a confirmation link to {confirmationSentTo}. Open it to
+                activate your account, then sign in. If it does not arrive in a
+                few minutes, check your spam folder.
+              </p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (

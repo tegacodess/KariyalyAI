@@ -76,6 +76,17 @@ export function providerFailure(mode: ProviderMode, signal: AbortSignal): Promis
   }
 }
 
+/** A provider reply that arrives after `ms`, unless the call is aborted first. */
+export function delayed(ms: number, body: unknown, signal: AbortSignal): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve(json(200, body)), ms)
+    signal.addEventListener('abort', () => {
+      clearTimeout(timer)
+      reject(signal.reason)
+    })
+  })
+}
+
 export function createFakeServices() {
   const state: FakeState = {
     validUser: true,

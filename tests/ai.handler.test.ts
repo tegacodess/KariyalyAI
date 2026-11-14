@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { handler } from '../netlify/functions/ai'
 import {
   createFakeServices,
+  delayed,
   geminiBody,
   groqBody,
   invoke,
@@ -452,6 +453,54 @@ describe('company brief grounding', () => {
       input: { company: 'Acme', role: 'Analyst' },
     })
     expect(result.body.data?.confidence).toBe('low')
+  })
+
+  describe('with a Groq key (standby fallback)', () => {
+    beforeEach(() => {
+      vi.stubEnv('GROQ_API_KEY', 'groq-key')
+      state.groq = async () => json(200, groqBody(JSON.stringify(briefCore)))
+    })
+
+    it('lets a slow search use the budget instead of holding time back for Groq', async () => {
+      // Holding back GROQ_TIMEOUT_MS (1500) from a 2500 ms budget would leave the search
+      // under 800 ms and skip it. With the standby, a 1200 ms search succeeds.
+      vi.stubEnv('GROUNDING_TIMEOUT_MS', '2000')
+      vi.stubEnv('GROQ_TIMEOUT_MS', '1500')
+      state.gemini = async (request, signal) =>
+        request.search
+          ? delayed(1200, geminiBody('WHAT THEY DO\nAnvils.', sources), signal)
+          : json(200, geminiBody(JSON.stringify(structured)))
+      const result = await invoke(handler, { task: 'company_brief', input })
+      expect(result.status).toBe(200)
+      expect(result.body.data?.grounded).toBe(true)
+    })
+
+    it('returns the standby brief, with the search failure reason, when search is rate limited', async () => {
+      state.gemini = async (_request, signal) => providerFailure('http429', signal)
+      const result = await invoke(handler, { task: 'company_brief', input })
+      expect(result.body.data).toMatchObject({ grounded: false, fallback_reason: 'quota' })
+      expect(state.groqCalls).toHaveLength(1)
+      expect(state.geminiCalls.every((c) => c.search)).toBe(true) // no second Gemini call
+    })
+
+    it('returns the standby brief within the budget when search hangs', async () => {
+      state.gemini = async (_request, signal) => providerFailure('hang', signal)
+      const result = await invoke(handler, { task: 'company_brief', input })
+      expect(result.status).toBe(200)
+      expect(result.body.data).toMatchObject({ grounded: false, fallback_reason: 'error' })
+      expect(result.ms).toBeLessThan(2500)
+    })
+
+    it('falls back to Gemini when the search and the standby both fail', async () => {
+      state.groq = async (_body, signal) => providerFailure('http503', signal)
+      state.gemini = async (request, signal) =>
+        request.search
+          ? providerFailure('http429', signal)
+          : json(200, geminiBody(JSON.stringify(briefCore)))
+      const result = await invoke(handler, { task: 'company_brief', input })
+      expect(result.body.data).toMatchObject({ grounded: false, fallback_reason: 'quota' })
+      expect(state.groqCalls).toHaveLength(1) // Groq is not tried a second time
+    })
   })
 
   it('uses Groq for the fallback brief when a Groq key is set', async () => {

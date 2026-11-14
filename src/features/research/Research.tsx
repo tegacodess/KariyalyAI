@@ -47,6 +47,13 @@ async function inputHash(input: unknown) {
     .join('')
 }
 
+const FALLBACK_NOTICE: Record<string, string> = {
+  disabled: 'Live search is switched off.',
+  quota: "Today's live search limit has been reached.",
+  error: 'Live search did not respond in time.',
+  no_results: 'Live search found no sources for this company.',
+}
+
 export default function Research({
   jobId,
   company,
@@ -228,7 +235,7 @@ export default function Research({
                   </Badge>
                 ) : (
                   <Badge variant="warning" size="sm" icon={<AlertTriangle className="h-3 w-3" />}>
-                    Fallback Mode ({brief.fallback_reason || 'No Search'})
+                    No live search
                   </Badge>
                 )}
                 <Badge variant="neutral" size="sm">
@@ -239,7 +246,8 @@ export default function Research({
 
             {!brief.grounded && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-xs text-amber-900 leading-relaxed">
-                Live search grounding was unavailable ({brief.fallback_reason || 'unverified'}). The brief was generated from the provided role and pasted about text.
+                {FALLBACK_NOTICE[brief.fallback_reason ?? 'error']} This brief has no recent
+                news. It uses only the company name, the role and any About text you pasted.
               </div>
             )}
 

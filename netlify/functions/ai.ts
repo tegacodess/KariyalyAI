@@ -136,8 +136,8 @@ class GroqProviderError extends Error {
  * Caps a provider call so it ends before the request budget runs out. Throws TIMEOUT
  * when too little time is left to make a call worth starting.
  */
-function budget(preferredMs: number, reserveMs = 0): number {
-  const remaining = requestDeadline - Date.now() - 250 - reserveMs
+function budget(preferredMs: number): number {
+  const remaining = requestDeadline - Date.now() - 250
   if (remaining < 800) {
     throw new AiFailure(
       'TIMEOUT',
@@ -217,7 +217,6 @@ interface GeminiCall {
   /** true: enable Google Search grounding. */
   search?: boolean
   timeoutMs?: number
-  reserveMs?: number
 }
 
 interface GroqCall {
@@ -258,9 +257,7 @@ async function callGemini(call: GeminiCall): Promise<GeminiBody> {
         ? { generationConfig: { responseMimeType: 'application/json' } }
         : {}),
     }),
-    signal: AbortSignal.timeout(
-      budget(call.timeoutMs ?? GEMINI_TIMEOUT_MS(), call.reserveMs ?? 0),
-    ),
+    signal: AbortSignal.timeout(budget(call.timeoutMs ?? GEMINI_TIMEOUT_MS())),
   }, (status, message) => new GeminiProviderError(status, `Gemini ${message}.`))
 
   if (!result.ok) {
@@ -340,7 +337,6 @@ async function generateValidated<T>(
   input: unknown,
   schema: z.ZodType<T>,
   timeoutMs = standardGeminiTimeoutMs(),
-  reserveMs = 0,
 ): Promise<T> {
   let feedback = ''
 
@@ -353,7 +349,6 @@ async function generateValidated<T>(
         user: JSON.stringify(input),
         json: true,
         timeoutMs,
-        reserveMs,
       })
 
       const text = getText(body)
@@ -531,7 +526,6 @@ async function tryGroundedBrief(
       json: false,
       search: true,
       timeoutMs: GROUNDING_TIMEOUT_MS(),
-      reserveMs: process.env.GROQ_API_KEY ? GROQ_TIMEOUT_MS() : 0,
     })
 
     const researchText = getText(research).trim()
@@ -555,7 +549,6 @@ async function tryGroundedBrief(
       },
       GroundedBriefModel,
       STRUCTURE_TIMEOUT_MS(),
-      process.env.GROQ_API_KEY ? GROQ_TIMEOUT_MS() : 0,
     )
 
     const data = CompanyBriefOutput.parse({
@@ -623,14 +616,27 @@ async function runCompanyBrief(
   grounding: { attempt: boolean; reason: FallbackReason },
 ): Promise<CompanyBriefResult> {
   let reason = grounding.reason
+  let groqAlreadyTried = false
 
   if (grounding.attempt) {
+    // Start the Groq fallback brief at the same time as the search. If the search fails,
+    // even late, the fallback is already written. The search therefore does not have to
+    // leave time for a fallback and can use the whole request budget; holding time back
+    // for Groq instead cut the search off after a few seconds, so news rarely appeared.
+    const standby = process.env.GROQ_API_KEY
+      ? fallbackBrief(input, 'error', 'groq').catch(() => null)
+      : null
+    groqAlreadyTried = standby !== null
+
     const attempt = await tryGroundedBrief(input)
     if (attempt.ok) return attempt.data
     reason = attempt.reason
+
+    const ready = standby ? await standby : null
+    if (ready) return { ...ready, fallback_reason: reason }
   }
 
-  if (process.env.GROQ_API_KEY) {
+  if (process.env.GROQ_API_KEY && !groqAlreadyTried) {
     try {
       return await fallbackBrief(input, reason, 'groq')
     } catch (error) {

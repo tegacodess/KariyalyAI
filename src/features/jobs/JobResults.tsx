@@ -177,7 +177,13 @@ export default function JobResults() {
                 async (company) =>
                   await supabase.rpc('match_sponsor', { q: company }),
               )
-              if (isMounted) setWorkAuth(sponsorResult)
+              if (isMounted) {
+                setWorkAuth({
+                  ...sponsorResult,
+                  register_date:
+                    sponsorResult.register_date ?? registerMeta.register_date,
+                })
+              }
             } catch {
               if (isMounted) {
                 setWorkAuth({

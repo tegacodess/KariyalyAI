@@ -11,3 +11,11 @@
   from = "/api/ai"
   to = "/.netlify/functions/ai"
   status = 200
+
+# Single-page app: serve the app for every other address, so links such as /login or
+# /app/tracker work when opened directly, refreshed, or reached from the confirmation
+# email. Must stay after the /api/ai rule (the first matching rule wins).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

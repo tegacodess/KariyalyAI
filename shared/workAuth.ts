@@ -132,12 +132,14 @@ export async function lookupUkSponsor(
 
   const match = data?.[0]
   if (!match || match.similarity < 0.6) {
+    // Do not return the weak match: showing an unrelated organisation as a "sponsor
+    // match" under a "not found" result is misleading.
     return {
       state: 'not_found',
-      matched_org: match?.org_name ?? null,
-      matched_town: match?.town ?? null,
+      matched_org: null,
+      matched_town: null,
       register_date: match?.register_date ?? null,
-      similarity: match?.similarity ?? null,
+      similarity: null,
       note: 'No close match was found in the UK sponsor register.',
     }
   }

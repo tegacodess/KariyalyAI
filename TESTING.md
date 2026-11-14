@@ -27,16 +27,17 @@ The automated tests never call the real Gemini, Groq or Supabase. Before demo da
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Sign up with a new email | A confirmation email arrives; the app works only after confirming |
+| 1 | Sign up with a new email | A "Check your email" message appears and a confirmation email arrives; its link opens the sign-in page; signing in works only after confirming |
+| 1a | Open `/app/tracker` directly in a new tab, then refresh it | The app loads (or sends you to sign in), never a Netlify "Page not found" |
 | 2 | Upload a PDF CV, tick consent, analyse | A profile you can edit; nothing is invented |
 | 3 | Try to analyse without ticking consent | The button stays disabled |
 | 4 | Set country of residence and right-to-work countries, save | Only countries from the list can be added |
 | 5 | Paste a UK job with "We are unable to offer visa sponsorship" | Score and gaps; work authorisation shows the sponsorship restriction |
 | 6 | Paste a UK job at a well-known sponsor, with no restriction | "Likely licensed to sponsor" with the register date, once the register is loaded |
-| 7 | Paste a job in a country you listed as right to work | "No visa sponsorship indicated" |
-| 8 | Paste a remote job with no location | "No visa needed" with a note to check the posting |
+| 7 | Paste a job in a country you listed as right to work | "No visa sponsorship needed" |
+| 8 | Paste a remote job with no location | "No visa sponsorship needed" with a note to check the posting |
 | 9 | Tailor: generate, edit, copy, reload the page | Your edits are still there; Copy works |
-| 10 | Research a real company | A brief with recent news and working source links, or a clear fallback notice |
+| 10 | Research five real companies | Most briefs show recent news with working source links. If most show "No live search", time the search and tell the team: news is the point of this feature |
 | 11 | Research with `GROUNDING_ENABLED=false` in Netlify | Fallback notice, no news, no error |
 | 12 | Outreach on LinkedIn and on email | No subject line on LinkedIn; a subject on email |
 | 13 | Tracker: add, change status, undo, view history, delete | Each works; delete asks first |

@@ -95,7 +95,7 @@ export const copy = {
 
   workAuth: {
     title: 'Work authorisation',
-    noVisaNeeded: 'No visa sponsorship indicated',
+    noVisaNeeded: 'No visa sponsorship needed',
     noSponsorship: 'Sponsorship restriction found',
     likelyLicensed: 'Likely licensed to sponsor',
     notFound: 'Sponsor not found',

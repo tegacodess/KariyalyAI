@@ -220,10 +220,19 @@ export default function Tracker() {
       ),
     )
 
-    await supabase
+    const { error: undoError } = await supabase
       .from('applications')
       .update({ status: previousStatus })
       .eq('id', applicationId)
+
+    if (undoError) {
+      setApplications((current) =>
+        current.map((item) =>
+          item.id === applicationId ? { ...item, status: undo.nextStatus } : item,
+        ),
+      )
+      setError('Failed to undo the status change. Please try again.')
+    }
   }
 
   async function handleAddApplication(event: FormEvent<HTMLFormElement>) {

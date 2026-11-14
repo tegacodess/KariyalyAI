@@ -107,8 +107,14 @@ describe('lookupUkSponsor', () => {
     expect(result).toMatchObject({ state: 'likely_licensed', matched_org: 'Acme Ltd', register_date: '2026-11-10' })
   })
 
-  it('is not found below 0.6', async () => {
-    expect((await lookupUkSponsor('Acme', lookup(0.59))).state).toBe('not_found')
+  it('is not found below 0.6, and does not present the weak match as a sponsor', async () => {
+    const result = await lookupUkSponsor('Acme', lookup(0.59))
+    expect(result).toMatchObject({
+      state: 'not_found',
+      matched_org: null,
+      similarity: null,
+      register_date: '2026-11-10',
+    })
   })
 
   it('is not found when there is no match at all', async () => {
