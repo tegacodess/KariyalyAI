@@ -136,8 +136,8 @@ class GroqProviderError extends Error {
  * Caps a provider call so it ends before the request budget runs out. Throws TIMEOUT
  * when too little time is left to make a call worth starting.
  */
-function budget(preferredMs: number): number {
-  const remaining = requestDeadline - Date.now() - 250
+function budget(preferredMs: number, reserveMs = 0): number {
+  const remaining = requestDeadline - Date.now() - 250 - reserveMs
   if (remaining < 800) {
     throw new AiFailure(
       'TIMEOUT',
@@ -221,6 +221,7 @@ interface GeminiCall {
   /** true: enable Google Search grounding. */
   search?: boolean
   timeoutMs?: number
+  reserveMs?: number
 }
 
 interface GroqCall {
@@ -261,7 +262,9 @@ async function callGemini(call: GeminiCall): Promise<GeminiBody> {
         ? { generationConfig: { responseMimeType: 'application/json' } }
         : {}),
     }),
-    signal: AbortSignal.timeout(budget(call.timeoutMs ?? GEMINI_TIMEOUT_MS())),
+    signal: AbortSignal.timeout(
+      budget(call.timeoutMs ?? GEMINI_TIMEOUT_MS(), call.reserveMs ?? 0),
+    ),
   }, (status, message) => new GeminiProviderError(status, `Gemini ${message}.`))
 
   if (!result.ok) {
@@ -341,6 +344,7 @@ async function generateValidated<T>(
   input: unknown,
   schema: z.ZodType<T>,
   timeoutMs = standardGeminiTimeoutMs(),
+  reserveMs = 0,
 ): Promise<T> {
   let feedback = ''
 
@@ -353,6 +357,7 @@ async function generateValidated<T>(
         user: JSON.stringify(input),
         json: true,
         timeoutMs,
+        reserveMs,
       })
 
       const text = getText(body)
@@ -477,7 +482,14 @@ async function generateValidatedWithProviderFallback<T>(
   schema: z.ZodType<T>,
 ): Promise<T> {
   try {
-    return await generateValidated(systemPrompt, input, schema)
+    const reserveMs = process.env.GROQ_API_KEY ? GROQ_TIMEOUT_MS() : 0
+    return await generateValidated(
+      systemPrompt,
+      input,
+      schema,
+      standardGeminiTimeoutMs(),
+      reserveMs,
+    )
   } catch (error) {
     if (!(error instanceof GeminiProviderError) || !process.env.GROQ_API_KEY) {
       throw error
