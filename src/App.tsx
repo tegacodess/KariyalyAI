@@ -5,6 +5,8 @@ import ProtectedRoute from './components/ProtectedRoute'
 
 import Login from './features/auth/Login'
 import Signup from './features/auth/Signup'
+import ResetPassword from './features/auth/ResetPassword'
+import SavedSearches from './features/searches/SavedSearches'
 import Onboarding from './features/profile/Onboarding'
 import ProfileOverview from './features/profile/ProfileOverview'
 import JobSubmission from './features/jobs/JobSubmission'
@@ -19,6 +21,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
@@ -27,6 +30,7 @@ export default function App() {
             <Route path="/app/jobs/new" element={<JobSubmission />} />
             <Route path="/app/jobs/:id" element={<JobResults />} />
             <Route path="/app/tracker" element={<Tracker />} />
+            <Route path="/app/searches" element={<SavedSearches />} />
           </Route>
         </Route>
 

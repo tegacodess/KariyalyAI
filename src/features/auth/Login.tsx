@@ -206,6 +206,12 @@ export default function Login() {
                 >
                   Password
                 </label>
+                <Link
+                  to="/reset-password"
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                >
+                  Forgot password?
+                </Link>
               </div>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">

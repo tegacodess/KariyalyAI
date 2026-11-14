@@ -9,6 +9,7 @@ import {
   Menu,
   X,
   User,
+  Search,
 } from 'lucide-react'
 import { useAuth } from '../context/useAuth'
 
@@ -29,6 +30,12 @@ const navigation = [
     to: '/app/tracker',
     label: 'Application Tracker',
     icon: Kanban,
+    badge: null,
+  },
+  {
+    to: '/app/searches',
+    label: 'Saved Searches',
+    icon: Search,
     badge: null,
   },
 ]

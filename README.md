@@ -113,6 +113,29 @@ Netlify synchronous functions stop after about 10 seconds on the default plan. `
 
 `GROQ_API_KEY` is used only on the server when Gemini fails for a standard AI task. For `company_brief`, Gemini still handles search grounding first. When a Groq key is set, the Groq fallback brief is started at the same time as the search, so a fallback is ready if the search fails and the search can use the whole request budget. Groq can generate the non-grounded fallback, but cannot provide grounded news or source links.
 
+Scheduled searches use Arbeitnow's public job API and require these additional server-only
+variables in Netlify:
+
+```env
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+The scheduled function runs hourly, reads active rows from `saved_searches`, and stores
+matching jobs in each row. The service-role key must never be exposed as a `VITE_` variable.
+
+To load generic Dutch or US sponsor evidence after migration 006:
+
+```bash
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
+npx tsx scripts/load_sponsor_evidence.ts evidence.csv --country=NL --dry-run
+
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
+npx tsx scripts/load_sponsor_evidence.ts evidence.csv --country=NL
+```
+
+Use `--country=US` for US data. The CSV must contain an `employer`, `company`,
+`organisation`, or `organization` column.
+
 ### Run locally
 
 For frontend-only work:

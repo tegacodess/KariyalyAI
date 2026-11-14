@@ -205,6 +205,10 @@ function failure(code: AiErrorCode, statusCode: number, message: string) {
   return response(statusCode, { ok: false, error: { code, message } })
 }
 
+function elapsedSince(startedAt: number): number {
+  return Date.now() - startedAt
+}
+
 // ---------------------------------------------------------------------------
 // Gemini calls
 // ---------------------------------------------------------------------------
@@ -674,7 +678,8 @@ async function globalUsageToday(
 // ---------------------------------------------------------------------------
 
 export const handler: Handler = async (event) => {
-  requestDeadline = Date.now() + REQUEST_BUDGET_MS()
+  const startedAt = Date.now()
+  requestDeadline = startedAt + REQUEST_BUDGET_MS()
   if (event.httpMethod !== 'POST') {
     return failure('INVALID_INPUT', 405, 'Only POST requests are supported.')
   }
@@ -789,7 +794,7 @@ export const handler: Handler = async (event) => {
     const oneMinuteAgo = new Date(now - 60_000).toISOString()
     const oneDayAgo = new Date(now - 86_400_000).toISOString()
 
-    const [minuteUsage, dailyUsage] = await Promise.all([
+    const [minuteUsage, dailyUsage, sharedUsage] = await Promise.all([
       supabase
         .from('ai_usage')
         .select('id', { count: 'exact', head: true })
@@ -801,9 +806,11 @@ export const handler: Handler = async (event) => {
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId)
         .gte('created_at', oneDayAgo),
+
+      globalUsageToday(supabase, false),
     ])
 
-    if (minuteUsage.error || dailyUsage.error) {
+    if (minuteUsage.error || dailyUsage.error || typeof sharedUsage !== 'number') {
       throw new Error('Unable to check AI usage limits.')
     }
 
@@ -820,7 +827,7 @@ export const handler: Handler = async (event) => {
 
     // 3. Shared daily cap across all users. The project's Gemini quota is shared, so a
     // few testers could otherwise use it up for everyone.
-    if ((await globalUsageToday(supabase, false)) >= GLOBAL_DAILY_AI_CAP()) {
+    if (sharedUsage >= GLOBAL_DAILY_AI_CAP()) {
       return failure(
         'BUSY',
         503,
@@ -861,6 +868,14 @@ export const handler: Handler = async (event) => {
 
     // 6. Generate and validate.
     let validatedOutput: unknown
+
+    console.info('[AI] Starting provider generation', {
+      task: taskName,
+      elapsedMs: elapsedSince(startedAt),
+      remainingMs: Math.max(0, requestDeadline - Date.now()),
+      hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+      hasGroqKey: Boolean(process.env.GROQ_API_KEY),
+    })
 
     if (taskName === 'company_brief') {
       validatedOutput = await runCompanyBrief(
@@ -929,6 +944,10 @@ export const handler: Handler = async (event) => {
     })
   } catch (error) {
     if (error instanceof AiFailure) {
+      console.error('[AI] Request failed', {
+        code: error.code,
+        elapsedMs: elapsedSince(startedAt),
+      })
       return failure(error.code, error.status, error.message)
     }
 
@@ -936,6 +955,8 @@ export const handler: Handler = async (event) => {
       console.error(
         '[AI] Gemini API request failed. HTTP status:',
         error.status,
+        'elapsedMs:',
+        elapsedSince(startedAt),
       )
 
       if (error.status === 504) {
@@ -957,6 +978,8 @@ export const handler: Handler = async (event) => {
     console.error(
       '[AI] Function error:',
       error instanceof Error ? error.message : 'Unknown error',
+      'elapsedMs:',
+      elapsedSince(startedAt),
     )
 
     return failure(

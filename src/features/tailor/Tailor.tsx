@@ -3,6 +3,7 @@ import {
   Sparkles,
   RefreshCw,
   FileText,
+  Download,
   Cloud,
   CloudOff,
   Loader2,
@@ -223,6 +224,20 @@ export default function Tailor({ jobId }: TailorProps) {
       active = false
     }
   }, [jobId])
+
+  function downloadCoverLetter() {
+    if (!coverLetter?.text.trim()) return
+
+    const blob = new Blob([coverLetter.text], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${job?.company || 'job'}-cover-letter.txt`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
 
   async function generate(force = false) {
     if (!profile || !job) return
@@ -583,7 +598,17 @@ export default function Tailor({ jobId }: TailorProps) {
                   )}
                 </span>
 
-                <CopyButton text={coverLetter.text} size="sm" label="Copy Letter" />
+                <div className="flex items-center gap-2">
+                  <CopyButton text={coverLetter.text} size="sm" label="Copy Letter" />
+                  <button
+                    type="button"
+                    onClick={downloadCoverLetter}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Download</span>
+                  </button>
+                </div>
               </div>
             </div>
 
